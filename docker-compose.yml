@@ -1,0 +1,36 @@
+version: '3'
+services:
+  scrapper:
+    command: tail -F anything
+    cap_add:
+      - SYS_ADMIN
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./scrapper
+    volumes:
+      - /app/node_modules
+      - ./scrapper:/app
+    environment:
+      - KAFKA_BROKER=posting_queue:9092
+      - KAFKA_CLIENT_ID=scrapper
+  scheduler:
+    command: tail -F anything
+    depends_on:
+      - scrapper
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./scheduler
+    volumes:
+      - /app/node_modules
+      - ./scheduler:/app
+    environment:
+      - KAFKA_BROKER=posting_queue:9092
+      - KAFKA_CLIENT_ID=scheduler
+  zoo:
+    image: zookeeper
+  posting_queue:
+    image: 'confluentinc/cp-kafka'
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zoo:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://posting_queue:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
