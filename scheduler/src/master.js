@@ -1,15 +1,19 @@
 const { fork } = require('child_process');
+const db = require('../models');
+const {SET_PARTITIONS, SET_TIMESTAMP} = require('./consts')
 
-// Create an array to hold references to the spawned workers
-
-const sleep = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 const min_num_workers = 2
 
-let num_workers = process.argv[2]
-const num_partitions = process.argv[3]
+let num_workers = process.env.SCHEDULER_REPLICATION_FACTOR
+const num_partitions = process.env.PARTITION_COUNT
 const workers = []
 let partitions = []
+
+
+const sleep = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+const timestamp = (now = new Date()) => (Math.floor(now.getTime() / 1000))
 
 const generatePartitions = () => {
   let worker_index = 0
@@ -25,21 +29,16 @@ const generatePartitions = () => {
 }
 
 const startWorker = (shard_numbers) => {
-  const worker = fork('worker.js', [shard_numbers]);
+  const worker = fork('src/worker.js', [shard_numbers]);
 
-  worker.on('exit', () => {
+  worker.on('exit', async () => {
     console.log(`[MASTER] Worker ${worker.pid} has died.`);
   
     const index = workers.indexOf(worker);
     if (index !== -1) workers.splice(index, 1)
-    num_workers = num_workers - 1
    
-    for(let count = 0; count < num_workers; count++){
-      try {
-        workers[count].send(partitions[count])
-      } catch (error) {continue}
-    }
     generatePartitions()
+    await startWorkers()
 
   });
 
@@ -48,32 +47,40 @@ const startWorker = (shard_numbers) => {
   console.log(`[MASTER] Started worker ${worker.pid}`);
 };
 
-const startWorkers = () => {
+const startWorkers = async () => {
   for(let count = 0; count < num_workers; count++){
-
-    if(workers[count]){
-      try {
-        workers[count].send(partitions[count])
-      } catch (error) {continue}
-    }else {
-      const shards = partitions[count].join(" ")
-      startWorker(shards)
-    }
-
+    try {
+      if(workers[count]){
+          await workers[count].send({action: SET_PARTITIONS, data: partitions[count]})
+      }else {
+        const shards = partitions[count].join(" ")
+        startWorker(shards)
+      }
+    } catch (error) {continue}
   }
 }
 
 ( async () =>{
 
 
+  generatePartitions()
+
+  startWorkers()
+
   while(true){
-    generatePartitions()
-    startWorkers()
-    while(workers.length >= min_num_workers ) await sleep(1000)
+    let t = timestamp()
+    console.log(`[MASTER] Beginning to work on timestamp ${t}`);
+    for(let count = 0; count < num_workers; count++){
+      try {
+        await workers[count].send({ action: SET_TIMESTAMP, data: t})
+      } catch (error) {continue}
+    }
 
-    num_workers = min_num_workers
-
+    await sleep( 1000)
   }
+
+
+  process.exit(0)
 
 })();
 
