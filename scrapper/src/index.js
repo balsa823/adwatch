@@ -9,7 +9,7 @@ async function subscribeToKafkaTopic(topic) {
     brokers: [process.env.KAFKA_BROKER],
   });
 
-  const consumer = kafka.consumer({ groupId: consumer_group });
+  const consumer = kafka.consumer({ "groupId": consumer_group });
 
   await consumer.connect();
   console.log('Connected to Kafka. Subscribing to topic:', topic);
@@ -25,5 +25,3 @@ async function subscribeToKafkaTopic(topic) {
 }
 
 subscribeToKafkaTopic(kafka_topic);
-  
-

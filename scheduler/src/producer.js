@@ -42,6 +42,6 @@ const run = async () => {
 
 }
 
-module.exports = {
-  run
-}
+(async()=>{
+  await run()
+})()

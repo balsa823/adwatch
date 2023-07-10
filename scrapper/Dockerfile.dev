@@ -8,4 +8,6 @@ RUN npm install
 
 COPY . .
 
-CMD ["node", "src/index.js", "Macbook"]
+RUN node src/topic.js
+
+CMD ["node", "src/index.js"]

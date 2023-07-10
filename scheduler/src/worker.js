@@ -1,52 +1,107 @@
 // worker.js
 
-const { SET_PARTITIONS, SET_TIMESTAMP } = require('./consts');
+const { SET_TIMESTAMP, NOT_SCHEDULED, SCHEDULED } = require('./consts');
+const {Kafka} = require('kafkajs')
 
-const getRandomNumber = (min, max) => Math.floor(Math.random() * (max - min) + min);
-const sleep = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds));
+const {kafka_topic} = require('./consts')
+const db = require('../models');
+
+const {timestamp, interval_to_seconds, get_shard_number, sleep} = require('./util')
+
+const shard_numbers = process.argv[2].split(" ");
+const num_partitions = process.env.PARTITION_COUNT
+
+const kafka = new Kafka({
+  "clientId": `${process.env.KAFKA_CLIENT_ID}:${process.pid}`,
+  "brokers": [process.env.KAFKA_BROKER]
+})
+
+const producer = kafka.producer()
+
+const send_messages = async (executions) => {
+  if(executions.length == 0) return
+  const messages = executions.map( e => ({
+    "value": e.job_id,
+    "partition": 0
+  }))
+  console.log(`[WORKER] ${process.pid} sent messages ${JSON.stringify(messages)}`)
+
+  const connection = await producer.connect()
+  console.log(`[WORKER] ${process.pid} connection => ${JSON.stringify(connection)}`)
+
+  const result = await producer.send({
+    "topic": kafka_topic,
+    "messages": messages
+  })
+  console.log(`[WORKER] ${process.pid} result => ${JSON.stringify(result)}`)
+  await producer.disconnect();
+}
 
 
-let shard_numbers = process.argv[2].split(" ");
-
-let timestamp
-
-process.on('message', message => {
+process.on('message', async message => {
   switch(message.action){
-    case SET_PARTITIONS:
-      shard_numbers = message.data
-      console.log(`[WORKER] ${process.pid} updated shards ${shard_numbers}`)
-    break
     case SET_TIMESTAMP:
-      timestamp = message.data
-      console.log(`[WORKER] ${process.pid} updated timestamp to ${timestamp}`)
+      //console.log(`[WORKER] [${process.pid}] working on timestamp ${message.data}`)
+      await execute(message.data)
     break
     default:
       console.log(message)
   }
 });
 
-const doWork = async () => {
-  const workCount = getRandomNumber(1, 15);
+const execute = async (time) => {
+  const executions = await db.Execution.findAll({
+    where: {
+      [db.Sequelize.Op.and]: [
+        {
+          shard: {
+            [db.Sequelize.Op.or]: shard_numbers
+          } 
+        },
+        {
+          execution_id: time
+        },
+        {
+          status: NOT_SCHEDULED
+        }
+      ]
+    },
+    include: [{ model: db.Job, as: 'job' }]
+  })
 
-  for (let i = 0; i < workCount; i++) {
-    console.log(`[WORKER] ${process.pid} is working... on shards ${shard_numbers}`);
-    
-    if(workCount == getRandomNumber(1, 15)) throw new Error()
+  await send_messages(executions)
 
-    await sleep( 1000);
+  for (let i = 0; i < executions.length; i++)  {
+
+    console.log(Object.keys(executions[i]))
+    console.log(JSON.stringify(executions[i]))
+
+    const next_execution = {
+      execution_id: timestamp() + interval_to_seconds(executions[i].job.interval),
+      job_id: executions[i].job_id,
+      shard: get_shard_number(num_partitions),
+      status: NOT_SCHEDULED
+    }
+
+    console.log(next_execution)
+
+    console.log(`Scheduling execution ${JSON.stringify(next_execution)}`)
+
+    await db.Execution.create(next_execution)
+
+    executions[i].status = SCHEDULED
+    await executions[i].save()
   }
+
 };
 
 
  (async()=>{
-
+  //console.log(`[WORKER] [${process.pid}] alive`)
   try {
-    await doWork();
+    while(true) await sleep(1000);
   } catch (error) {
-    process.exit(1);
+    process.exit(0);
   }
-
-  process.exit(0)
  
-
  })();

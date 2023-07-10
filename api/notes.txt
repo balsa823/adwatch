@@ -1,0 +1,12 @@
+
+
+
+
+signUp - registracija
+signIn - logovanje -> embedovanje user_id-a u req
+
+job/schedule -> pravljenje job-a sa parametrima i intervalom
+             -> zakazivanje prve egzekucije
+
+job/all      -> prikaz svih mojih zakazanih job-oba
+job/history  -> prikaz izvrsavanja jednog posla 

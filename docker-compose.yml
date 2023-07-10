@@ -1,5 +1,47 @@
 version: '3'
 services:
+  db:
+    depends_on:
+      - posting_queue
+    image: 'postgres'
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_USER=root
+  scheduler:
+    command: ./entrypoint.sh
+    depends_on:
+      - db
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./scheduler
+    volumes:
+      - /app/node_modules
+      - ./scheduler:/app
+    environment:
+      - KAFKA_BROKER=posting_queue:9092
+      - KAFKA_CLIENT_ID=scheduler
+      - SCHEDULER_REPLICATION_FACTOR=2
+      - PARTITION_COUNT=2
+      - NODE_OPTIONS=max_old_space_size=1024
+  api:
+    depends_on:
+      - scheduler
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./api
+    volumes:
+      - /app/node_modules
+      - ./api:/app
+    environment:
+      - API_HOST=localhost
+      - API_PORT=3000
+      - PARTITION_COUNT=2
+    ports:
+      - "3000:3000"
   scrapper:
     command: tail -F anything
     cap_add:
@@ -13,35 +55,14 @@ services:
     environment:
       - KAFKA_BROKER=posting_queue:9092
       - KAFKA_CLIENT_ID=scrapper
-  scheduler:
-    command: ./entrypoint.sh
-    depends_on:
-      - scrapper
-    build:
-      dockerfile: Dockerfile.dev
-      context: ./scheduler
-    volumes:
-      - /app/node_modules
-      - ./scheduler:/app
-    environment:
-      - KAFKA_BROKER=posting_queue:9092
-      - KAFKA_CLIENT_ID=scheduler
-      - SCHEDULER_REPLICATION_FACTOR=5
-      - PARTITION_COUNT=5
-  db:
-    image: 'postgres'
-    expose:
-      - "5432"
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_PASSWORD=1234
-      - POSTGRES_USER=root
   zoo:
     image: zookeeper
   posting_queue:
+    depends_on:
+        - zoo
     image: 'confluentinc/cp-kafka'
     environment:
       - KAFKA_ZOOKEEPER_CONNECT=zoo:2181
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://posting_queue:9092
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
