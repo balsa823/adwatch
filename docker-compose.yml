@@ -43,7 +43,6 @@ services:
     ports:
       - "3000:3000"
   scrapper:
-    command: tail -F anything
     cap_add:
       - SYS_ADMIN
     build:

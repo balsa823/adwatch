@@ -14,6 +14,10 @@ app.get('/users', async (req, res) => {
         {
           model: db.Job,
           as: 'jobs',
+          include: {
+            model: db.Execution,
+            as: "executions"
+          }
         },
       ],
     });

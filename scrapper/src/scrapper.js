@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const url = 'https://novi.kupujemprodajem.com/';
 
  
-const searchButtonSelector = 'button.ButtonSearch_search__nLSRu'
+const searchButtonSelector = "button.ButtonSearch_search__nLSRu"
 const searchInput = 'input#keywords'
 
 const resultLengthSelector = 'div.BreadcrumbHolder_breadcrumb__KAsXr > span > div > span'
@@ -21,16 +21,32 @@ const log = (req) => {
 const keyword = process.argv[2]
 
 const run = async (keyword) => {
-    const browser = await puppeteer.launch()
-
+    const browser = await puppeteer.launch(`headless: "new"`)
+    console.log("Launched")
     const page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 800 })
     //page.on('request', log);
 
     await page.goto(url)
+    console.log("Went to URL")
+
+    await page.screenshot({ path: 'output/sc1.jpg' });
+
+    console.log(`Typing ${keyword} type ${typeof(keyword)}`)
 
     await page.type(searchInput, keyword)
-    await page.click(searchButtonSelector)
+    await page.screenshot({ path: 'output/sc2.jpg' });
+
+    console.log(`Typed ${keyword}`)
+
+    await page.keyboard.press('Enter');
+    console.log("Pressed enter")
+
+    await page.screenshot({ path: 'output/sc3.jpg' });
+
+    // await page.click(searchButtonSelector)
+    // console.log("Clicked Search")
+
 
     await page.waitForSelector(resultSelector)
 
@@ -43,8 +59,8 @@ const run = async (keyword) => {
     // const result_lenght = spans[1]
 
     const results = []
-
     while(true){
+        console.log(`Loaded Page Results ${results.length}`)
 
         const pageResults = await page.$$(resultSelector)
 

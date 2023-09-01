@@ -16,4 +16,10 @@ module.exports = function(app) {
     controller.schedule
   );
 
+  app.get(
+    "/api/job/all",
+    [authJWT.verifyToken],
+    controller.get_all
+  )
+
 };

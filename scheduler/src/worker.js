@@ -20,10 +20,22 @@ const producer = kafka.producer()
 
 const send_messages = async (executions) => {
   if(executions.length == 0) return
-  const messages = executions.map( e => ({
-    "value": e.job_id,
-    "partition": 0
-  }))
+  
+  const messages = executions.map( e => {
+
+    const data = JSON.stringify({  
+      "keyword": e.job.description.keyword,
+      "job_id": e.job_id,
+      "execution_id": e.execution_id
+    })
+
+    return {
+      "key": e.job_id,
+      "value": data,
+      "partition": 0
+    }
+  }
+  )
   console.log(`[WORKER] ${process.pid} sent messages ${JSON.stringify(messages)}`)
 
   const connection = await producer.connect()
@@ -69,29 +81,33 @@ const execute = async (time) => {
     include: [{ model: db.Job, as: 'job' }]
   })
 
-  await send_messages(executions)
 
   for (let i = 0; i < executions.length; i++)  {
+    let execution = executions[i]
 
-    console.log(Object.keys(executions[i]))
-    console.log(JSON.stringify(executions[i]))
+    execution.status = SCHEDULED
+    execution.worker_id = process.pid
 
-    const next_execution = {
-      execution_id: timestamp() + interval_to_seconds(executions[i].job.interval),
-      job_id: executions[i].job_id,
-      shard: get_shard_number(num_partitions),
-      status: NOT_SCHEDULED
+
+    if( execution.retry_count < execution.job.retry_times ) {
+      const next_execution = {
+        execution_id: timestamp() + interval_to_seconds(executions[i].job.interval),
+        job_id: execution.job_id,
+        retry_count: execution.retry_count + 1,
+        shard: get_shard_number(num_partitions),
+        status: NOT_SCHEDULED
+      }
+  
+      //console.log(`Scheduling next execution ${JSON.stringify(next_execution)}`)
+  
+      await db.Execution.create(next_execution)
     }
 
-    console.log(next_execution)
+    await execution.save()
 
-    console.log(`Scheduling execution ${JSON.stringify(next_execution)}`)
-
-    await db.Execution.create(next_execution)
-
-    executions[i].status = SCHEDULED
-    await executions[i].save()
   }
+
+  await send_messages(executions)
 
 };
 
