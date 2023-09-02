@@ -1,5 +1,18 @@
 version: '3'
 services:
+  mailer:
+    command: ./entrypoint.sh
+    depends_on:
+      - posting_queue
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./mailer
+    volumes:
+      - /app/node_modules
+      - ./mailer:/app
+    environment:
+      - KAFKA_BROKER=posting_queue:9092
+      - KAFKA_CLIENT_ID=mailer
   db:
     depends_on:
       - posting_queue
@@ -43,6 +56,8 @@ services:
     ports:
       - "3000:3000"
   scrapper:
+    depends_on:
+        - posting_queue
     cap_add:
       - SYS_ADMIN
     build:

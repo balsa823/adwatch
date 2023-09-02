@@ -1,56 +1,79 @@
 const { Kafka } = require('kafkajs');
-const {consumer_group , kafka_topic} = require('./consts')
+const {posting_consumer_group , posting_kafka_topic, mails_kafka_topic} = require('./consts')
 const db = require('../models');
 const { run } = require('./scrapper')
 
-const topic = require('./topic');
+const kafka = new Kafka({
+  "clientId": `${process.env.KAFKA_CLIENT_ID}:${process.pid}`,
+  "brokers": [process.env.KAFKA_BROKER]
+})
+const producer = kafka.producer()
 
+const send_mails = async (key, result) => {
+  if(result.length == 0) return
 
-async function subscribeToKafkaTopic(topic) {
-  const kafka = new Kafka({
-    clientId: process.env.KAFKA_CLIENT_ID,
-    brokers: [process.env.KAFKA_BROKER],
-  });
+  messages = [{
+    "key": key,
+    "value": JSON.stringify(result),
+    "partition": 0
+  }]
 
-  const consumer = kafka.consumer({ "groupId": consumer_group });
+  const connection_status = await producer.connect()
+  console.log(`Connected to Kafka. Producing to topic: ${mails_kafka_topic}, Connection status: ${connection_status}`);
+
+  const sending_status = await producer.send({
+    "topic": mails_kafka_topic,
+    "messages": messages
+  })
+  console.log(`Sending status ${sending_status} ! Scrapper sent messages ${JSON.stringify(messages)} `)
+
+  await producer.disconnect();
+}
+
+async function subscribeToKafkaTopic() {
+
+  const consumer = kafka.consumer({ "groupId": posting_consumer_group });
 
   await consumer.connect();
-  console.log('Connected to Kafka. Subscribing to topic:', topic);
+  console.log('Connected to Kafka. Consuming from topic: ', posting_kafka_topic);
 
-  await consumer.subscribe({ topic, fromBeginning: true });
+  await consumer.subscribe({ topics: [posting_kafka_topic], fromBeginning: true });
 
   await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
+    eachMessage: async ({ posting_kafka_topic, partition, message }) => {
       const { key, value } = message
-      const data = JSON.parse(value)
+      const [user_id, job_id, execution_id] = key.toString().split(":")
+      const keyword = value.toString()
 
-      console.log(`Received message - Topic: ${topic}, Partition: ${partition}, Key: ${key}, Value: ${data.toString()}`)
+      console.log(`Received message - Topic: ${posting_kafka_topic}, Partition: ${partition}, Key: ${key}, Value: ${keyword}`)
 
       let execution = await db.Execution.findOne({
         where: {
           [db.Sequelize.Op.and]: [
             {
-              job_id: data.job_id
+              job_id: job_id
             },
             {
-              execution_id: data.execution_id
+              execution_id: execution_id
             }
           ]
         }
       })
 
-      execution.status = "executing"
+      execution.status = "scrapping"
       await execution.save()
 
-      const result = await run(data.keyword.toString())
+      const result = await run(keyword.toString())
 
-      //Execution results append
       execution.execution_result = {result}
-      execution.status = "executed"
+
+      await send_mails(key, result)
+
+      execution.status = "sent"
       await execution.save()
 
     },
   });
 }
 
-subscribeToKafkaTopic(kafka_topic);
+subscribeToKafkaTopic();

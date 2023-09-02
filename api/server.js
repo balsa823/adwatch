@@ -31,6 +31,14 @@ app.get('/users', async (req, res) => {
   }
 });
 
+// I use "express": "^4.17.2"
+app.get('/', (req, res) => {
+  res.status(200).json({
+      status: "success",
+      timestamp: Date.now(),
+  });
+});
+
 require('./routes/auth.routes')(app);
 require('./routes/user.routes')(app);
 require('./routes/job.routes')(app);

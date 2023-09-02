@@ -1,7 +1,7 @@
 const SECOND = "second"
 const MINUTE = "minute"
 const HOUR = "hour"
-const DAY = "DAY"
+const DAY = "day"
 
 const NOT_SCHEDULED = 'not_scheduled'
 const SCHEDULED = 'scheduled'

@@ -21,21 +21,12 @@ const producer = kafka.producer()
 const send_messages = async (executions) => {
   if(executions.length == 0) return
   
-  const messages = executions.map( e => {
-
-    const data = JSON.stringify({  
-      "keyword": e.job.description.keyword,
-      "job_id": e.job_id,
-      "execution_id": e.execution_id
-    })
-
-    return {
-      "key": e.job_id,
-      "value": data,
+  const messages = executions.map( e => ({
+      "key": `${e.job.user_id}:${e.job_id}:${e.execution_id}`,
+      "value": e.job.description.keyword,
       "partition": 0
-    }
-  }
-  )
+  }))
+
   console.log(`[WORKER] ${process.pid} sent messages ${JSON.stringify(messages)}`)
 
   const connection = await producer.connect()
@@ -78,7 +69,11 @@ const execute = async (time) => {
         }
       ]
     },
-    include: [{ model: db.Job, as: 'job' }]
+    include: [
+      {
+         model: db.Job, as: 'job',
+      }
+    ]
   })
 
 
