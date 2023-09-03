@@ -20,7 +20,7 @@ const log = (req) => {
 
 const keyword = process.argv[2]
 
-const run = async (keyword) => {
+const kp_run = async (keyword) => {
     const browser = await puppeteer.launch(`headless: "new"`)
     console.log("Launched")
     const page = await browser.newPage()
@@ -94,5 +94,5 @@ const run = async (keyword) => {
 }
 
 module.exports = {
-    run
+    kp_run
 }

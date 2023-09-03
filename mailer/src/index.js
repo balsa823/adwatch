@@ -73,7 +73,7 @@ async function subscribeToKafkaTopic() {
       const mailDetails = {
         from: server_mail,
         to: user.email,
-        subject: job.description.keyword,
+        subject: job.data.keyword,
         text: value
       }
      

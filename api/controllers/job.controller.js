@@ -8,11 +8,11 @@ const schedule = async (req, res) => {
     const job = {
       user_id: req.user_id,
       retry_times: req.body.retry_times,
-      description: req.body.description,
+      data: req.body.data,
       interval: req.body.interval,
     }
 
-    console.log(`Adding ${job.description} job for user ${req.user_id}`)
+    console.log(`Adding ${job.data} job for user ${req.user_id}`)
 
     const inserted = await db.Job.create(job)
 

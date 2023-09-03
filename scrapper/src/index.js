@@ -1,12 +1,19 @@
 const { Kafka } = require('kafkajs');
-const {posting_consumer_group , posting_kafka_topic, mails_kafka_topic} = require('./consts')
+const {kp_queue_consumer_group, kp_queue_topic, ho_queue_consumer_group, ho_queue_topic, mails_queue, SCRAPING, SCRAPED} = require('./consts')
 const db = require('../models');
-const { run } = require('./scrapper')
+const { kp_run } = require('./kp_scrapper')
+
+
+const QUEUE_TO_FUN = {
+  kp_queue: (keyword) => kp_run(keyword),
+  //ho_queue_topic: ho_run
+}
 
 const kafka = new Kafka({
   "clientId": `${process.env.KAFKA_CLIENT_ID}:${process.pid}`,
   "brokers": [process.env.KAFKA_BROKER]
 })
+
 const producer = kafka.producer()
 
 const send_mails = async (key, result) => {
@@ -19,10 +26,10 @@ const send_mails = async (key, result) => {
   }]
 
   const connection_status = await producer.connect()
-  console.log(`Connected to Kafka. Producing to topic: ${mails_kafka_topic}, Connection status: ${connection_status}`);
+  console.log(`Connected to Kafka. Producing to topic: ${mails_queue}, Connection status: ${connection_status}`);
 
   const sending_status = await producer.send({
-    "topic": mails_kafka_topic,
+    "topic": mails_queue,
     "messages": messages
   })
   console.log(`Sending status ${sending_status} ! Scrapper sent messages ${JSON.stringify(messages)} `)
@@ -30,22 +37,25 @@ const send_mails = async (key, result) => {
   await producer.disconnect();
 }
 
-async function subscribeToKafkaTopic() {
+async function subscribeToKafkaTopic(topic, consumer_group) {
 
-  const consumer = kafka.consumer({ "groupId": posting_consumer_group });
+  const consumer = kafka.consumer({ "groupId": consumer_group });
 
   await consumer.connect();
-  console.log('Connected to Kafka. Consuming from topic: ', posting_kafka_topic);
+  console.log(`Connected to Kafka. Consuming from topic:${topic}`);
 
-  await consumer.subscribe({ topics: [posting_kafka_topic], fromBeginning: true });
+  await consumer.subscribe({ topic, fromBeginning: true });
+
+  console.log(`Subscribed to Kafka Consuming from topic:${topic}`);
+
 
   await consumer.run({
-    eachMessage: async ({ posting_kafka_topic, partition, message }) => {
+    eachMessage: async ({ topic, partition, message }) => {
       const { key, value } = message
-      const [user_id, job_id, execution_id] = key.toString().split(":")
+      const [ user_id, job_id, execution_id ] = key.toString().split(":")
       const keyword = value.toString()
 
-      console.log(`Received message - Topic: ${posting_kafka_topic}, Partition: ${partition}, Key: ${key}, Value: ${keyword}`)
+      console.log(`Received message - Topic: ${topic}, Partition: ${partition}, Key: ${key}, Value: ${keyword}`)
 
       let execution = await db.Execution.findOne({
         where: {
@@ -59,9 +69,12 @@ async function subscribeToKafkaTopic() {
           ]
         }
       })
+      if(!execution)return
 
-      execution.status = "scrapping"
+      execution.status = SCRAPING
       await execution.save()
+
+      const run = QUEUE_TO_FUN[topic]
 
       const result = await run(keyword.toString())
 
@@ -69,11 +82,14 @@ async function subscribeToKafkaTopic() {
 
       await send_mails(key, result)
 
-      execution.status = "sent"
+      execution.status = SCRAPED
       await execution.save()
 
     },
   });
 }
 
-subscribeToKafkaTopic();
+(async()=>{
+  await subscribeToKafkaTopic(kp_queue_topic, "1");
+  //await subscribeToKafkaTopic(ho_queue_topic.trim(), ho_queue_consumer_group);
+})()

@@ -69,6 +69,7 @@ services:
     environment:
       - KAFKA_BROKER=posting_queue:9092
       - KAFKA_CLIENT_ID=scrapper
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
   zoo:
     image: zookeeper
   posting_queue:

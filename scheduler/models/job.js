@@ -16,7 +16,7 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.INTEGER,
         allowNull: false,
       },
-      description: {
+      data: {
         type: Sequelize.JSONB,
         allowNull: true,
       },

@@ -22,7 +22,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
       },
-      description: {
+      data: {
         type: Sequelize.JSONB,
         allowNull: true,
       },

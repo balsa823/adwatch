@@ -1,6 +1,6 @@
 const {Kafka} = require('kafkajs')
 
-const {kafka_topic} = require('./consts')
+const {kp_queue_topic, ho_queue_topic} = require('./consts')
 
 const createTopic = async () => {
   
@@ -15,10 +15,16 @@ const createTopic = async () => {
     await admin.connect()
 
     const result = await admin.createTopics({
-      "topics": [{
-        "topic": kafka_topic,
-        "numPartitions": 1
-      }]
+      "topics": [
+        {
+          "topic": kp_queue_topic,
+          "numPartitions": 1
+        },
+        {
+          "topic": ho_queue_topic,
+          "numPartitions": 1
+        }   
+      ]
     })
     console.log(`Created ! ${result}`)
 

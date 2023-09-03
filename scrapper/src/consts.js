@@ -1,7 +1,13 @@
 module.exports = {
-  posting_consumer_group: 'my-consumer-group',
-  mails_consumer_group: 'primary',
-  mails_kafka_topic: 'mails',
-  posting_kafka_topic: 'queue'
+  kp_queue_consumer_group: 'primary',
+  kp_queue_topic: 'kp_queue',
+  ho_queue_consumer_group: 'primary',
+  ho_queue_topic: 'ho_queue',
+
+  mails_queue: 'mails',
+  posting_kafka_topic: 'queue',
+
+  SCRAPING: "scraping",
+  SCRAPED: "scraped"
 }
 

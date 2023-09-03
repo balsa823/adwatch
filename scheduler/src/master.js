@@ -46,9 +46,9 @@ const startWorkers = () => {
 
   partitions = generatePartitions()
   startWorkers()
-
+  let t = timestamp()
   while(true){
-    let t = timestamp()
+    
     console.log(`[MASTER] Beginning to work on timestamp ${t}`);
     for(let count = 0; count < num_workers; count++){
       try {
@@ -57,6 +57,7 @@ const startWorkers = () => {
     }
 
     await sleep(1000)
+    t = t + 1
   }
 
 })();

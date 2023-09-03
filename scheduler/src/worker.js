@@ -1,15 +1,17 @@
 // worker.js
-
-const { SET_TIMESTAMP, NOT_SCHEDULED, SCHEDULED } = require('./consts');
+const { SET_TIMESTAMP, NOT_SCHEDULED, SCHEDULED, kp_queue_topic, ho_queue_topic } = require('./consts');
 const {Kafka} = require('kafkajs')
-
-const {kafka_topic} = require('./consts')
 const db = require('../models');
 
 const {timestamp, interval_to_seconds, get_shard_number, sleep} = require('./util')
 
 const shard_numbers = process.argv[2].split(" ");
 const num_partitions = process.env.PARTITION_COUNT
+
+const SITE_TO_QUEUE = {
+  "kupujemprodajem.com": kp_queue_topic,
+  "halooglasi.com": ho_queue_topic
+}
 
 const kafka = new Kafka({
   "clientId": `${process.env.KAFKA_CLIENT_ID}:${process.pid}`,
@@ -20,23 +22,49 @@ const producer = kafka.producer()
 
 const send_messages = async (executions) => {
   if(executions.length == 0) return
-  
-  const messages = executions.map( e => ({
-      "key": `${e.job.user_id}:${e.job_id}:${e.execution_id}`,
-      "value": e.job.description.keyword,
+
+
+  const topics_with_messages = executions.reduce((acc, execution) => {
+    const site =  execution.job.data.site
+    const queue = SITE_TO_QUEUE[site]
+    const message = {
+      "key": `${execution.job.user_id}:${execution.job_id}:${execution.execution_id}`,
+      "value": execution.job.data.keyword,
       "partition": 0
+    }
+
+    if (!acc[queue]) { acc[queue] = [] }
+  
+    acc[queue].push(message)
+  
+    return acc
+  }, {})
+  
+  console.log(topics_with_messages)
+  
+  const topics_array = Object.entries(topics_with_messages).map(([queue, messages]) => ({
+    queue,
+    messages,
   }))
 
-  console.log(`[WORKER] ${process.pid} sent messages ${JSON.stringify(messages)}`)
+  console.log(topics_array)
+  console.log(typeof(topics_array))
 
   const connection = await producer.connect()
   console.log(`[WORKER] ${process.pid} connection => ${JSON.stringify(connection)}`)
 
-  const result = await producer.send({
-    "topic": kafka_topic,
-    "messages": messages
-  })
-  console.log(`[WORKER] ${process.pid} result => ${JSON.stringify(result)}`)
+
+  await Promise.all(topics_array.map(async ({queue, messages}) => {
+    console.log(`[WORKER] ${process.pid} queue => ${JSON.stringify(queue)}`)
+    console.log(`[WORKER] ${process.pid} messages => ${JSON.stringify(messages)}`)
+
+    const result = await producer.send({
+      "topic": queue,
+      "messages": messages
+    })
+    console.log(`[WORKER] ${process.pid} result => ${JSON.stringify(result)}`)
+  }))
+
   await producer.disconnect();
 }
 
