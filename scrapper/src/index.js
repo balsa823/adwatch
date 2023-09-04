@@ -2,11 +2,11 @@ const { Kafka } = require('kafkajs');
 const {kp_queue_consumer_group, kp_queue_topic, ho_queue_consumer_group, ho_queue_topic, mails_queue, SCRAPING, SCRAPED} = require('./consts')
 const db = require('../models');
 const { kp_run } = require('./kp_scrapper')
-
+const { ho_run } = require('./ho_scrapper')
 
 const QUEUE_TO_FUN = {
   kp_queue: (keyword) => kp_run(keyword),
-  //ho_queue_topic: ho_run
+  ho_queue: (keyword) => ho_run(keyword)
 }
 
 const kafka = new Kafka({
@@ -69,7 +69,7 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
           ]
         }
       })
-      if(!execution)return
+      if(!execution) return
 
       execution.status = SCRAPING
       await execution.save()
@@ -80,7 +80,7 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
 
       execution.execution_result = {result}
 
-      await send_mails(key, result)
+      await send_mails(key, {})
 
       execution.status = SCRAPED
       await execution.save()
@@ -90,6 +90,6 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
 }
 
 (async()=>{
-  await subscribeToKafkaTopic(kp_queue_topic, "1");
-  //await subscribeToKafkaTopic(ho_queue_topic.trim(), ho_queue_consumer_group);
+  //await subscribeToKafkaTopic(kp_queue_topic, "1");
+  await subscribeToKafkaTopic(ho_queue_topic, "2");
 })()

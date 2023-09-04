@@ -1,31 +1,26 @@
 const puppeteer = require('puppeteer');
-const url = 'https://novi.kupujemprodajem.com/';
+const url = 'https://www.halooglasi.com/';
 
  
 const searchButtonSelector = "button.ButtonSearch_search__nLSRu"
-const searchInput = 'input#keywords'
+const searchInput = 'input#search-query'
 
 const resultLengthSelector = 'div.BreadcrumbHolder_breadcrumb__KAsXr > span > div > span'
 
-const nextPageButtonSelector = "a.Pagination_buttonNext__yzVN_"
-const resultSelector = 'section.AdItem_adOuterHolder__i2qTf'
+const nextPageButtonSelector = "a.page-link.next"
+const resultSelector = '.market'
 
-const itemNameSelector = "div.AdItem_name__RhGAZ"
-const itemPriceSelector= "div.AdItem_price__jUgxi"
-const itemPostedStatusSelector = "div.AdItem_postedStatus__swUhG"
+const itemNameSelector = ".product-title > a"
+const itemPriceSelector= ".central-feature > span"
+const itemDescriptionSelector= ".product-description"
+const itemPublishDateSelector = ".publish-date"
 
-const log = (req) => {
-    console.log('A request was made: ', req.url())
-}
 
-const keyword = process.argv[2]
-
-const kp_run = async (keyword) => {
+const ho_run = async (keyword) => {
     const browser = await puppeteer.launch(`headless: "new"`)
     console.log("Launched")
     const page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 800 })
-    //page.on('request', log);
 
     await page.goto(url)
     console.log("Went to URL")
@@ -45,39 +40,53 @@ const kp_run = async (keyword) => {
     await page.screenshot({ path: 'output/sc3.jpg' });
 
     // await page.click(searchButtonSelector)
-    console.log("Clicked Search")
 
-
-    await page.waitForSelector(resultSelector)
-
+    try {
+        await page.waitForSelector(resultSelector)
+    } catch (error) {
+        await browser.close();
+        return []
+    }
 
     const results = []
     while(true){
-        console.log(`Loaded Page Results ${results.length}`)
 
         const pageResults = await page.$$(resultSelector)
 
+        console.log(pageResults.length)
+
         const parsed =  await Promise.all(pageResults.map( async r => {
             const item = {}
-    
+
             item.name = await r.$eval(itemNameSelector, el => el.textContent)
+            item.link = await r.$eval(itemNameSelector, el => el.href)
             item.price =   await r.$eval(itemPriceSelector, el => el.textContent)
-            item.posted_status =   await r.$eval(itemPostedStatusSelector, el => el.textContent)
+            item.description =   await r.$eval(itemDescriptionSelector, el => el.textContent)
+
+            item.publish_date =   await r.$eval(itemPublishDateSelector, el => el.textContent)
+
+            console.log(item.name)
     
             return item
         }))
 
         results.push(...parsed)
+        console.log(`Loaded Page Results ${results.length}`)
+
 
         const nextPageButton = await page.$(nextPageButtonSelector)
 
         if( !nextPageButton ) {
+            console.log("Done")
             break
         }
 
         await nextPageButton.click()
+        console.log("clicked")
 
+        await page.waitForNavigation({ waitUntil: 'load' });
         await page.waitForSelector(resultSelector)
+
 
     }
     
@@ -87,5 +96,5 @@ const kp_run = async (keyword) => {
 }
 
 module.exports = {
-    kp_run
+    ho_run
 }
