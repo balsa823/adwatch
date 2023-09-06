@@ -40,7 +40,17 @@ services:
       - SCHEDULER_REPLICATION_FACTOR=2
       - PARTITION_COUNT=2
       - NODE_OPTIONS=max_old_space_size=1024
+  load_balancer:
+    depends_on:
+      - api
+    restart: always
+    build: 
+      dockerfile: Dockerfile.dev
+      context: ./load_balancer
+    ports:
+      - "8080:80"
   api:
+    #scale: 3
     depends_on:
       - scheduler
     build:
@@ -53,8 +63,6 @@ services:
       - API_HOST=localhost
       - API_PORT=3000
       - PARTITION_COUNT=2
-    ports:
-      - "3000:3000"
   scrapper:
     depends_on:
         - posting_queue

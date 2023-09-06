@@ -17,23 +17,6 @@ let mailTransporter = nodemailer.createTransport({
 
 async function subscribeToKafkaTopic() {
 
-  // const users = await db.User.findAll({
-  //   include: [
-  //     {
-  //       model: db.Job,
-  //       as: 'jobs',
-  //       include: {
-  //         model: db.Execution,
-  //         as: "executions"
-  //       }
-  //     },
-  //   ],
-  // });
-  
-  // console.log(`USERS ${JSON.stringify(users)}`)
-
-
-
   const kafka = new Kafka({
     clientId: process.env.KAFKA_CLIENT_ID,
     brokers: [process.env.KAFKA_BROKER],

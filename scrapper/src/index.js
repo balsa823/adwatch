@@ -78,10 +78,10 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
 
       const result = await run(keyword.toString())
 
+    
+      await send_mails(key, result)
+      
       execution.execution_result = {result}
-
-      await send_mails(key, {})
-
       execution.status = SCRAPED
       await execution.save()
 
