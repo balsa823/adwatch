@@ -87,10 +87,12 @@ const execute = async (time) => {
         {
           shard: {
             [db.Sequelize.Op.or]: shard_numbers
-          } 
+          }
         },
         {
-          execution_id: time
+          execution_id: {
+            [db.Sequelize.Op.lte]: time
+          }
         },
         {
           status: NOT_SCHEDULED
