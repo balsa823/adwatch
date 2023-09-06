@@ -84,7 +84,7 @@ const ho_run = async (keyword) => {
         await nextPageButton.click()
         console.log("clicked")
 
-        await page.waitForNavigation({ waitUntil: 'load' });
+        await page.waitForNavigation({ waitUntil: 'load', timeout: 5000 });
         await page.waitForSelector(resultSelector)
 
 
