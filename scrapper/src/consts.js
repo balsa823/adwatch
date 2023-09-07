@@ -7,7 +7,7 @@ module.exports = {
   mails_queue: 'mails',
   posting_kafka_topic: 'queue',
 
-  SCRAPING: "scraping",
-  SCRAPED: "scraped"
+  PROCESSING: "proccessing",
+  DONE: "done"
 }
 

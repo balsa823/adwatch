@@ -23,7 +23,6 @@ const producer = kafka.producer()
 const send_messages = async (executions) => {
   if(executions.length == 0) return
 
-
   const topics_with_messages = executions.reduce((acc, execution) => {
     const site =  execution.job.data.site
     const queue = SITE_TO_QUEUE[site]
@@ -39,16 +38,11 @@ const send_messages = async (executions) => {
   
     return acc
   }, {})
-  
-  console.log(topics_with_messages)
-  
+    
   const topics_array = Object.entries(topics_with_messages).map(([queue, messages]) => ({
     queue,
     messages,
   }))
-
-  console.log(topics_array)
-  console.log(typeof(topics_array))
 
   const connection = await producer.connect()
   console.log(`[WORKER] ${process.pid} connection => ${JSON.stringify(connection)}`)
@@ -68,11 +62,9 @@ const send_messages = async (executions) => {
   await producer.disconnect();
 }
 
-
 process.on('message', async message => {
   switch(message.action){
     case SET_TIMESTAMP:
-      //console.log(`[WORKER] [${process.pid}] working on timestamp ${message.data}`)
       await execute(message.data)
     break
     default:
@@ -106,13 +98,11 @@ const execute = async (time) => {
     ]
   })
 
-
   for (let i = 0; i < executions.length; i++)  {
     let execution = executions[i]
 
     execution.status = SCHEDULED
     execution.worker_id = process.pid
-
 
     if( execution.retry_count < execution.job.retry_times ) {
       const next_execution = {
@@ -122,23 +112,15 @@ const execute = async (time) => {
         shard: get_shard_number(num_partitions),
         status: NOT_SCHEDULED
       }
-  
-      //console.log(`Scheduling next execution ${JSON.stringify(next_execution)}`)
-  
       await db.Execution.create(next_execution)
     }
-
     await execution.save()
-
   }
 
   await send_messages(executions)
-
 };
 
-
  (async()=>{
-  //console.log(`[WORKER] [${process.pid}] alive`)
   try {
     while(true) await sleep(1000);
   } catch (error) {

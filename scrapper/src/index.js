@@ -1,5 +1,5 @@
 const { Kafka } = require('kafkajs');
-const {kp_queue_consumer_group, kp_queue_topic, ho_queue_consumer_group, ho_queue_topic, mails_queue, SCRAPING, SCRAPED} = require('./consts')
+const {kp_queue_consumer_group, kp_queue_topic, ho_queue_consumer_group, ho_queue_topic, mails_queue, DONE, PROCESSING} = require('./consts')
 const db = require('../models');
 const { kp_run } = require('./kp_scrapper')
 const { ho_run } = require('./ho_scrapper')
@@ -53,9 +53,9 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
     eachMessage: async ({ topic, partition, message }) => {
       const { key, value } = message
       const [ user_id, job_id, execution_id ] = key.toString().split(":")
-      const keyword = value.toString()
+      const input = value.toString()
 
-      console.log(`Received message - Topic: ${topic}, Partition: ${partition}, Key: ${key}, Value: ${keyword}`)
+      console.log(`Received message - Topic: ${topic}, Partition: ${partition}, Key: ${key}, Value: ${input}`)
 
       let execution = await db.Execution.findOne({
         where: {
@@ -71,19 +71,18 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
       })
       if(!execution) return
 
-      execution.status = SCRAPING
-      await execution.save()
+      await execution.update({ status: PROCESSING })
 
       const run = QUEUE_TO_FUN[topic]
 
-      const result = await run(keyword.toString())
+      const result = await run(input.toString())
 
-    
       await send_mails(key, result)
       
-      execution.execution_result = {result}
-      execution.status = SCRAPED
-      await execution.save()
+      await execution.update({
+        execution_result: result,
+        status: DONE
+      })
 
     },
   });
