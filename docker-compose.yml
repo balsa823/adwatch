@@ -89,3 +89,7 @@ services:
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://posting_queue:9092
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKAJS_NO_PARTITIONER_WARNING=1
+  redis:
+    image: "redis"
+    ports:
+      - "8001:8001"

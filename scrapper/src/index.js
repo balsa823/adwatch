@@ -1,5 +1,6 @@
 const { Kafka } = require('kafkajs');
 const {kp_queue_consumer_group, kp_queue_topic, ho_queue_consumer_group, ho_queue_topic, mails_queue, DONE, PROCESSING} = require('./consts')
+const sleep = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds));
 const db = require('../models');
 const { kp_run } = require('./kp_scrapper')
 const { ho_run } = require('./ho_scrapper')
@@ -34,7 +35,6 @@ const send_mails = async (key, result) => {
   })
   console.log(`Sending status ${sending_status} ! Scrapper sent messages ${JSON.stringify(messages)} `)
 
-  await producer.disconnect();
 }
 
 async function subscribeToKafkaTopic(topic, consumer_group) {
@@ -45,7 +45,6 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
   console.log(`Connected to Kafka. Consuming from topic:${topic}`);
 
   await consumer.subscribe({ topic, fromBeginning: true });
-
   console.log(`Subscribed to Kafka Consuming from topic:${topic}`);
 
 
@@ -88,7 +87,17 @@ async function subscribeToKafkaTopic(topic, consumer_group) {
   });
 }
 
+
+
 (async()=>{
-  //await subscribeToKafkaTopic(kp_queue_topic, "1");
-  await subscribeToKafkaTopic(ho_queue_topic, "2");
-})()
+  try {
+    await producer.connect()
+    //await subscribeToKafkaTopic(kp_queue_topic, "1");
+    await subscribeToKafkaTopic(ho_queue_topic, "2");
+    while(true) await sleep(100)
+  } catch (error) {
+    await producer.disconnect()
+    process.exit(0);
+  }
+ 
+ })();
